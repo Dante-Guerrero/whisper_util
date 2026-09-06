@@ -1,28 +1,9 @@
 @echo off
 setlocal
 
-REM ============================================================
-REM Configuracion facil
-REM Modelos disponibles: tiny, base, small, medium, large
-REM ============================================================
-
-set MODELO=large
-set IDIOMA=Spanish
-set INPUT_DIR=input
-set OUTPUT_DIR=output
-
-REM ============================================================
-REM WHISPER_UTIL
-REM ============================================================
-
 echo ============================================================
 echo WHISPER_UTIL - Transcripcion de audios en input
 echo ============================================================
-echo.
-echo Modelo: %MODELO%
-echo Idioma: %IDIOMA%
-echo Input:  %INPUT_DIR%
-echo Output: %OUTPUT_DIR%
 echo.
 
 cd /d "%~dp0"
@@ -52,22 +33,21 @@ if errorlevel 1 (
     exit /b 1
 )
 
-if not exist "%INPUT_DIR%" (
-    echo No existe la carpeta %INPUT_DIR%. Creandola...
-    mkdir "%INPUT_DIR%"
-)
+if not exist "input" mkdir "input"
+if not exist "output" mkdir "output"
 
-if not exist "%OUTPUT_DIR%" (
-    echo No existe la carpeta %OUTPUT_DIR%. Creandola...
-    mkdir "%OUTPUT_DIR%"
-)
-
-".venv\Scripts\python.exe" src\transcribir_whisper.py --input "%INPUT_DIR%" --output "%OUTPUT_DIR%" --modelo "%MODELO%" --idioma "%IDIOMA%"
+".venv\Scripts\python.exe" "src\transcribir_whisper.py"
+set EXIT_CODE=%ERRORLEVEL%
 
 echo.
 echo ============================================================
-echo Proceso terminado.
+if %EXIT_CODE% equ 0 (
+    echo Proceso terminado correctamente.
+) else (
+    echo ERROR: El proceso termino con codigo %EXIT_CODE%.
+)
 echo ============================================================
 echo.
 
 pause
+exit /b %EXIT_CODE%

@@ -7,36 +7,42 @@ echo ============================================================
 echo.
 
 set SCRIPT_DIR=%~dp0
-set REPO_ROOT=%SCRIPT_DIR%..
+for %%I in ("%SCRIPT_DIR%..") do set "REPO_ROOT=%%~fI"
 
 cd /d "%REPO_ROOT%"
 
 if not exist ".venv\Scripts\python.exe" (
-    echo No se encontro .venv\Scripts\python.exe
+    echo ERROR: No se encontro .venv\Scripts\python.exe
     echo Primero ejecuta: scripts\instalar_whisper.cmd
     echo.
     pause
     exit /b 1
 )
 
-if not exist "input" (
-    echo No existe la carpeta input.
-    echo Creando carpeta input...
-    mkdir input
+where ffmpeg >nul 2>nul
+if errorlevel 1 (
+    echo ERROR: No se encontro FFmpeg en el PATH.
+    echo Ejecuta primero: scripts\instalar_whisper.cmd
+    echo.
+    pause
+    exit /b 1
 )
 
-if not exist "output" (
-    echo No existe la carpeta output.
-    echo Creando carpeta output...
-    mkdir output
-)
+if not exist "input" mkdir "input"
+if not exist "output" mkdir "output"
 
-".venv\Scripts\python.exe" "src\transcribir_whisper.py" --input input --output output --modelo small --idioma Spanish
+".venv\Scripts\python.exe" "src\transcribir_whisper.py"
+set EXIT_CODE=%ERRORLEVEL%
 
 echo.
 echo ============================================================
-echo Proceso terminado.
+if %EXIT_CODE% equ 0 (
+    echo Proceso terminado correctamente.
+) else (
+    echo ERROR: El proceso termino con codigo %EXIT_CODE%.
+)
 echo ============================================================
 echo.
 
 pause
+exit /b %EXIT_CODE%

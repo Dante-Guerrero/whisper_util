@@ -10,14 +10,14 @@
 
 from pathlib import Path
 import argparse
+import shutil
 import sys
 import time
-
-import whisper
 
 
 EXTENSIONES_AUDIO_VIDEO = {
     ".mp3",
+    ".opus",
     ".wav",
     ".m4a",
     ".aac",
@@ -30,6 +30,8 @@ EXTENSIONES_AUDIO_VIDEO = {
     ".avi",
     ".webm",
 }
+
+MODELO_PREDETERMINADO = "large"
 
 
 def obtener_repo_root() -> Path:
@@ -98,6 +100,32 @@ def transcribir_archivo(
     return txt_salida
 
 
+def comprobar_ffmpeg() -> None:
+    if shutil.which("ffmpeg") is None:
+        print(
+            "ERROR: FFmpeg no está instalado o no está disponible en PATH.\n"
+            "Ejecuta primero el instalador correspondiente:\n"
+            "  Windows: scripts\\instalar_whisper.cmd\n"
+            "  macOS:   ./scripts/install_whisper.sh",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+
+def cargar_whisper():
+    try:
+        import whisper
+    except ImportError:
+        print(
+            "ERROR: Whisper no está instalado en este entorno.\n"
+            "Ejecuta primero el instalador correspondiente.",
+            file=sys.stderr,
+        )
+        raise SystemExit(1)
+
+    return whisper
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Transcribe archivos nuevos desde input/ hacia output/ usando Whisper."
@@ -117,9 +145,9 @@ def main() -> None:
 
     parser.add_argument(
         "--modelo",
-        default="small",
+        default=MODELO_PREDETERMINADO,
         choices=["tiny", "base", "small", "medium", "large"],
-        help="Modelo Whisper a usar. Por defecto: small",
+        help=f"Modelo Whisper a usar. Por defecto: {MODELO_PREDETERMINADO}",
     )
 
     parser.add_argument(
@@ -167,6 +195,9 @@ def main() -> None:
 
     print()
     print(f"Cargando modelo Whisper: {args.modelo}")
+    print("La primera ejecución puede descargar el modelo.")
+    comprobar_ffmpeg()
+    whisper = cargar_whisper()
     model = whisper.load_model(args.modelo)
 
     procesados = 0

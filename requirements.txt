@@ -1,0 +1,2 @@
+# Fecha de publicación fijada para que Windows y macOS instalen la misma versión.
+openai-whisper==20250625

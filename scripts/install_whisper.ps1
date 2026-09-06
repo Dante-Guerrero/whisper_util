@@ -1,159 +1,104 @@
-# ============================================================
-# scripts/install_whisper.ps1
-# Instalador de Whisper para Windows / ThinkPad
-# Crea el entorno virtual en: root_del_repo/.venv
-# ============================================================
-
 $ErrorActionPreference = "Stop"
 
-Write-Host "=== Instalador de Whisper para Windows ===" -ForegroundColor Cyan
+try {
+    Write-Host "============================================================" -ForegroundColor Cyan
+    Write-Host "WHISPER_UTIL - Instalacion para Windows" -ForegroundColor Cyan
+    Write-Host "============================================================" -ForegroundColor Cyan
 
-# ------------------------------------------------------------
-# 1. Resolver rutas
-# ------------------------------------------------------------
+    $ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $RepoRoot = Split-Path -Parent $ScriptsDir
+    $VenvPython = Join-Path $RepoRoot ".venv\Scripts\python.exe"
+    $Requirements = Join-Path $RepoRoot "requirements.txt"
+    Set-Location $RepoRoot
 
-$ScriptsDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-$RepoRoot = Split-Path -Parent $ScriptsDir
-$VenvDir = Join-Path $RepoRoot ".venv"
-
-Set-Location $RepoRoot
-
-Write-Host "Carpeta scripts:      $ScriptsDir" -ForegroundColor DarkGray
-Write-Host "Root del repositorio: $RepoRoot" -ForegroundColor Green
-Write-Host "Entorno virtual:      $VenvDir" -ForegroundColor Green
-
-# ------------------------------------------------------------
-# 2. Verificar Python
-# ------------------------------------------------------------
-
-Write-Host "`nVerificando Python..." -ForegroundColor Cyan
-
-$pythonCmd = $null
-
-if (Get-Command py -ErrorAction SilentlyContinue) {
-    $pythonCmd = "py"
-} elseif (Get-Command python -ErrorAction SilentlyContinue) {
-    $pythonCmd = "python"
-} else {
-    Write-Host "No se encontro Python. Intentando instalar con winget..." -ForegroundColor Yellow
-
-    if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-        throw "No se encontro winget. Instala Python manualmente desde https://www.python.org/downloads/windows/"
+    function Invoke-SystemPython {
+        param([Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments)
+        if ($script:UsePyLauncher) {
+            & py $script:PyVersion @Arguments
+        } else {
+            & $script:SystemPython @Arguments
+        }
+        if ($LASTEXITCODE -ne 0) {
+            throw "Python termino con codigo $LASTEXITCODE."
+        }
     }
 
-    winget install -e --id Python.Python.3.12
-
-    Write-Host ""
-    Write-Host "Python fue instalado." -ForegroundColor Green
-    Write-Host "Cierra y vuelve a abrir PowerShell o CMD, y luego ejecuta nuevamente scripts\instalar_whisper.cmd" -ForegroundColor Yellow
-    exit 0
-}
-
-Write-Host "Python detectado:" -ForegroundColor Green
-& $pythonCmd --version
-
-# ------------------------------------------------------------
-# 3. Verificar FFmpeg
-# ------------------------------------------------------------
-
-Write-Host "`nVerificando FFmpeg..." -ForegroundColor Cyan
-
-function Test-FFmpeg {
-    return [bool](Get-Command ffmpeg -ErrorAction SilentlyContinue)
-}
-
-if (!(Test-FFmpeg)) {
-    Write-Host "FFmpeg no encontrado en el PATH actual." -ForegroundColor Yellow
-    Write-Host "Intentando preparar winget..." -ForegroundColor Yellow
-
-    if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
-        throw "No se encontro winget. Instala FFmpeg manualmente y agregalo al PATH."
+    $script:UsePyLauncher = $false
+    $script:PyVersion = $null
+    $script:SystemPython = $null
+    if (Get-Command py -ErrorAction SilentlyContinue) {
+        foreach ($version in @("-3.13", "-3.12", "-3.11", "-3.10", "-3.9")) {
+            & py $version -c "import sys" *> $null
+            if ($LASTEXITCODE -eq 0) {
+                $script:UsePyLauncher = $true
+                $script:PyVersion = $version
+                break
+            }
+        }
     }
-
-    Write-Host "Reparando fuentes de winget..." -ForegroundColor Cyan
-    winget source reset --force
-    winget source update
-
-    Write-Host "Instalando FFmpeg con winget..." -ForegroundColor Cyan
-    winget install -e --id Gyan.FFmpeg --accept-package-agreements --accept-source-agreements
-
-    Write-Host ""
-    Write-Host "FFmpeg fue instalado o actualizado." -ForegroundColor Green
-
-    # Intentar refrescar PATH desde variables de entorno del sistema y usuario
-    $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
-    $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    $env:Path = "$machinePath;$userPath"
-
-    if (!(Test-FFmpeg)) {
-        Write-Host ""
-        Write-Host "FFmpeg se instalo, pero aun no esta disponible en esta terminal." -ForegroundColor Yellow
-        Write-Host "Cierra VS Code y PowerShell completamente, vuelve a abrirlos y ejecuta:" -ForegroundColor Yellow
-        Write-Host "ffmpeg -version" -ForegroundColor Cyan
-        Write-Host ""
-        Write-Host "Luego corre:" -ForegroundColor Yellow
-        Write-Host ".\main.cmd" -ForegroundColor Cyan
+    if (!$script:UsePyLauncher -and (Get-Command python -ErrorAction SilentlyContinue)) {
+        $candidatePython = (Get-Command python).Source
+        & $candidatePython -c "import sys; raise SystemExit(0 if (3, 9) <= sys.version_info[:2] <= (3, 13) else 1)" *> $null
+        if ($LASTEXITCODE -eq 0) { $script:SystemPython = $candidatePython }
+    }
+    if (!$script:UsePyLauncher -and !$script:SystemPython) {
+        Write-Host "No se encontro Python 3.9-3.13. Instalando Python 3.12 con winget..." -ForegroundColor Yellow
+        if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw "No se encontro winget. Instala Python 3 desde https://www.python.org/downloads/windows/ y vuelve a ejecutar este instalador."
+        }
+        winget install -e --id Python.Python.3.12 --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) { throw "winget no pudo instalar Python." }
+        Write-Host "Python fue instalado. Cierra y vuelve a abrir la terminal, y ejecuta otra vez scripts\instalar_whisper.cmd." -ForegroundColor Yellow
         exit 0
     }
+
+    Write-Host "`nPython detectado:" -ForegroundColor Green
+    Invoke-SystemPython @("--version")
+
+    function Test-FFmpeg { return [bool](Get-Command ffmpeg -ErrorAction SilentlyContinue) }
+    if (!(Test-FFmpeg)) {
+        Write-Host "`nFFmpeg no encontrado. Instalando con winget..." -ForegroundColor Yellow
+        if (!(Get-Command winget -ErrorAction SilentlyContinue)) {
+            throw "No se encontro winget. Instala FFmpeg manualmente y agregalo al PATH."
+        }
+        winget install -e --id Gyan.FFmpeg --accept-package-agreements --accept-source-agreements
+        if ($LASTEXITCODE -ne 0) { throw "winget no pudo instalar FFmpeg." }
+        $machinePath = [Environment]::GetEnvironmentVariable("Path", "Machine")
+        $userPath = [Environment]::GetEnvironmentVariable("Path", "User")
+        $env:Path = "$machinePath;$userPath"
+    }
+
+    if (!(Test-FFmpeg)) {
+        throw "FFmpeg se instalo, pero aun no aparece en PATH. Reinicia la terminal y ejecuta nuevamente el instalador."
+    }
+    Write-Host "`nFFmpeg detectado:" -ForegroundColor Green
+    ffmpeg -version | Select-Object -First 1
+
+    if (!(Test-Path $VenvPython)) {
+        Write-Host "`nCreando entorno virtual..." -ForegroundColor Cyan
+        Invoke-SystemPython @("-m", "venv", (Join-Path $RepoRoot ".venv"))
+    } else {
+        Write-Host "`nEl entorno virtual ya existe; se reutilizara." -ForegroundColor Yellow
+    }
+
+    if (!(Test-Path $VenvPython)) { throw "No se pudo crear $VenvPython" }
+
+    Write-Host "Actualizando pip, setuptools y wheel..." -ForegroundColor Cyan
+    & $VenvPython -m pip install --upgrade pip setuptools wheel
+    if ($LASTEXITCODE -ne 0) { throw "No se pudieron actualizar las herramientas de instalacion." }
+
+    Write-Host "Instalando dependencias Python..." -ForegroundColor Cyan
+    & $VenvPython -m pip install -r $Requirements
+    if ($LASTEXITCODE -ne 0) { throw "No se pudieron instalar las dependencias Python." }
+
+    & $VenvPython -c "import whisper; print('Whisper instalado correctamente')"
+    if ($LASTEXITCODE -ne 0) { throw "La verificacion de Whisper fallo." }
+    if (!(Test-FFmpeg)) { throw "La verificacion final de FFmpeg fallo." }
+
+    Write-Host "`nInstalacion finalizada correctamente." -ForegroundColor Green
+    Write-Host "Ejecuta main.cmd para transcribir los archivos de input\." -ForegroundColor Cyan
+    exit 0
+} catch {
+    Write-Host "`nERROR: $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
 }
-
-Write-Host "FFmpeg detectado:" -ForegroundColor Green
-ffmpeg -version | Select-Object -First 1
-
-# ------------------------------------------------------------
-# 4. Crear entorno virtual
-# ------------------------------------------------------------
-
-Write-Host "`nCreando entorno virtual..." -ForegroundColor Cyan
-
-if (!(Test-Path $VenvDir)) {
-    & $pythonCmd -m venv $VenvDir
-    Write-Host "Entorno virtual creado." -ForegroundColor Green
-} else {
-    Write-Host "El entorno virtual ya existe. Se reutilizara." -ForegroundColor Yellow
-}
-
-# ------------------------------------------------------------
-# 5. Activar entorno virtual
-# ------------------------------------------------------------
-
-$ActivateScript = Join-Path $VenvDir "Scripts\Activate.ps1"
-
-if (!(Test-Path $ActivateScript)) {
-    throw "No se encontro el script de activacion del entorno virtual: $ActivateScript"
-}
-
-. $ActivateScript
-
-Write-Host "Entorno virtual activado." -ForegroundColor Green
-
-# ------------------------------------------------------------
-# 6. Actualizar pip
-# ------------------------------------------------------------
-
-Write-Host "`nActualizando pip, setuptools y wheel..." -ForegroundColor Cyan
-
-python -m pip install --upgrade pip setuptools wheel
-
-# ------------------------------------------------------------
-# 7. Instalar Whisper
-# ------------------------------------------------------------
-
-Write-Host "`nInstalando OpenAI Whisper..." -ForegroundColor Cyan
-
-pip install --upgrade openai-whisper
-
-# ------------------------------------------------------------
-# 8. Verificar instalación
-# ------------------------------------------------------------
-
-Write-Host "`nVerificando instalacion de Whisper..." -ForegroundColor Cyan
-
-python -c "import whisper; print('Whisper instalado correctamente')"
-
-Write-Host ""
-Write-Host "Instalacion finalizada correctamente." -ForegroundColor Green
-
-Write-Host ""
-Write-Host "Para transcribir archivos desde input hacia output:" -ForegroundColor Cyan
-Write-Host "scripts\transcribir_input.cmd"

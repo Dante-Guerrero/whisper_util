@@ -1,242 +1,94 @@
 # WHISPER_UTIL
 
-Utilidad local para transcribir archivos de audio o video usando Whisper.
+Utilidad local y multiplataforma para transcribir archivos de audio o video con Python, [OpenAI Whisper](https://github.com/openai/whisper) y FFmpeg. Funciona en Windows 10/11 y en macOS Intel o Apple Silicon.
 
-El proyecto está organizado para colocar archivos en la carpeta `input/`, ejecutar un script, y obtener las transcripciones en formato `.txt` dentro de la carpeta `output/`.
+Los archivos se colocan en `input/` y las transcripciones `.txt` se guardan en `output/`. Si el `.txt` correspondiente ya existe, el archivo se omite; para reprocesarlo basta con borrar ese `.txt`.
 
-## Estructura del proyecto
+## Windows
 
-```text
-WHISPER_UTIL/
-├─ .venv/
-├─ input/
-│  └─ archivos de audio o video
-├─ output/
-│  └─ transcripciones generadas
-├─ scripts/
-│  ├─ instalar_whisper.cmd
-│  ├─ install_whisper.ps1
-│  └─ transcribir_input.cmd
-├─ src/
-│  └─ transcribir_whisper.py
-└─ .gitignore
-```
+Instala Python, FFmpeg y las dependencias ejecutando o abriendo con doble clic:
 
-## Requisitos
-
-Este proyecto está pensado para Windows.
-
-El instalador se encarga de verificar o instalar:
-
-- Python
-- FFmpeg
-- Whisper
-- Entorno virtual `.venv`
-
-## Instalación
-
-Para instalar Whisper y sus dependencias, ejecutar:
-
-```powershell
+```bat
 scripts\instalar_whisper.cmd
 ```
 
-También se puede ejecutar haciendo doble clic sobre:
-
-```text
-scripts/instalar_whisper.cmd
-```
-
-El instalador creará un entorno virtual en la carpeta:
-
-```text
-.venv/
-```
-
-Si Python o FFmpeg son instalados durante el proceso, puede ser necesario cerrar y volver a abrir la terminal antes de ejecutar nuevamente el instalador.
-
-## Uso básico
-
-1. Colocar los archivos de audio o video dentro de la carpeta:
-
-```text
-input/
-```
-
-Ejemplo:
-
-```text
-input/alejo_mexcom.mp4
-```
-
-2. Ejecutar el transcriptor:
-
-```powershell
-scripts\transcribir_input.cmd
-```
-
-También se puede ejecutar haciendo doble clic sobre:
-
-```text
-scripts/transcribir_input.cmd
-```
-
-3. Revisar la transcripción generada en:
-
-```text
-output/
-```
-
-Ejemplo:
-
-```text
-output/alejo_mexcom.txt
-```
-
-## Funcionamiento
-
-El script revisa los archivos ubicados en `input/` y genera una transcripción `.txt` en `output/`.
-
-Por ejemplo:
-
-```text
-input/alejo_mexcom.mp4
-```
-
-genera:
-
-```text
-output/alejo_mexcom.txt
-```
-
-## Detección de archivos nuevos
-
-El script solo transcribe archivos que todavía no tengan una transcripción correspondiente en `output/`.
-
-Por ejemplo, si existe:
-
-```text
-output/alejo_mexcom.txt
-```
-
-entonces el archivo:
-
-```text
-input/alejo_mexcom.mp4
-```
-
-será omitido en la siguiente ejecución.
-
-## Reprocesar un archivo
-
-Para volver a transcribir un archivo, basta con borrar su `.txt` correspondiente en `output/`.
-
-Ejemplo:
-
-```text
-output/alejo_mexcom.txt
-```
-
-Luego ejecutar nuevamente:
-
-```powershell
-scripts\transcribir_input.cmd
-```
-
-El script detectará que falta la transcripción y volverá a procesar el archivo original en `input/`.
-
-## Formatos soportados
-
-El script reconoce archivos con estas extensiones:
-
-```text
-.mp3
-.wav
-.m4a
-.aac
-.ogg
-.flac
-.wma
-.mp4
-.mov
-.mkv
-.avi
-.webm
-```
-
-## Modelo usado por defecto
-
-El lanzador usa por defecto el modelo:
-
-```text
-small
-```
-
-y el idioma:
-
-```text
-Spanish
-```
-
-Esta configuración se encuentra en:
-
-```text
-scripts/transcribir_input.cmd
-```
-
-En particular, en esta línea:
+Después coloca los archivos en `input\` y ejecuta:
 
 ```bat
-".venv\Scripts\python.exe" "src\transcribir_whisper.py" --input input --output output --modelo small --idioma Spanish
+main.cmd
 ```
 
-## Cambiar el modelo de Whisper
+El instalador prefiere el lanzador `py`, usa `winget` cuando necesita instalar Python o FFmpeg y crea `.venv` en el repositorio. Si acaba de instalar una herramienta y todavía no aparece en `PATH`, reinicia la terminal y vuelve a ejecutar el instalador.
 
-Para usar un modelo más rápido, modificar `small` por:
+## macOS
 
-```text
-tiny
-base
+Desde Terminal, instala las dependencias con:
+
+```bash
+./scripts/install_whisper.sh
 ```
 
-Para usar modelos más precisos, pero más lentos, modificar `small` por:
+Después coloca los archivos en `input/` y ejecuta:
 
-```text
-medium
-large
+```bash
+./main.command
 ```
 
-Ejemplo:
+`main.command` también puede abrirse desde Finder. Si macOS no permite ejecutarlo inicialmente, abre Terminal en el repositorio y ejecuta:
+
+```bash
+chmod +x main.command scripts/install_whisper.sh
+```
+
+El instalador detecta Homebrew tanto en `/opt/homebrew` (Apple Silicon) como en `/usr/local` (Intel), y utiliza una versión compatible de Python 3. Si Homebrew no existe, muestra cómo instalarlo y se detiene sin modificar la configuración del usuario.
+
+## Uso y configuración
+
+Los valores predeterminados están centralizados en `src/transcribir_whisper.py`:
+
+- modelo: `large`;
+- idioma: `Spanish`;
+- entrada: `input/`;
+- salida: `output/`.
+
+La primera ejecución de `large` puede descargar varios GB. Este modelo consume más memoria y tarda más que `small` o `medium`; en equipos con recursos limitados puede elegirse otro mediante `--modelo`. Los pesos no se guardan en este repositorio.
+
+Para personalizar la ejecución, usa directamente el intérprete del entorno virtual.
+
+Windows:
 
 ```bat
-".venv\Scripts\python.exe" "src\transcribir_whisper.py" --input input --output output --modelo medium --idioma Spanish
+.venv\Scripts\python.exe src\transcribir_whisper.py --modelo medium --idioma English
 ```
 
-## Ejecución manual desde terminal
+macOS:
 
-También se puede ejecutar directamente desde el entorno virtual:
-
-```powershell
-.\.venv\Scripts\python.exe src\transcribir_whisper.py --input input --output output --modelo small --idioma Spanish
+```bash
+.venv/bin/python src/transcribir_whisper.py --modelo medium --idioma English
 ```
 
-## Recomendación de uso
+También están disponibles `--input` y `--output`. Consulta todas las opciones con `--help`.
 
-Para una ThinkPad sin GPU dedicada, se recomienda comenzar con:
+## Archivos admitidos
+
+`.mp3`, `.opus`, `.wav`, `.m4a`, `.aac`, `.ogg`, `.flac`, `.wma`, `.mp4`, `.mov`, `.mkv`, `.avi` y `.webm`.
+
+Ejemplo: `input/entrevista.mp4` genera `output/entrevista.txt`. Si `output/entrevista.txt` ya existe, se omite; bórralo y vuelve a ejecutar el lanzador para reprocesar el original.
+
+## Estructura
 
 ```text
-small
+WHISPER_UTIL/
+├── input/
+├── output/
+├── scripts/
+│   ├── instalar_whisper.cmd
+│   ├── install_whisper.ps1
+│   ├── install_whisper.sh
+│   └── transcribir_input.cmd
+├── src/
+│   └── transcribir_whisper.py
+├── main.cmd
+├── main.command
+└── requirements.txt
 ```
-
-Si el procesamiento tarda demasiado, usar:
-
-```text
-base
-```
-
-Si se requiere mayor precisión y no importa esperar más tiempo, usar:
-
-```text
-medium
-```
-
